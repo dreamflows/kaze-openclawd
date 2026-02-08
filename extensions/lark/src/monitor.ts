@@ -1,11 +1,10 @@
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { RuntimeEnv } from "openclaw/plugin-sdk";
 import * as http from "node:http";
 import * as url from "node:url";
-import type { ClawdbotConfig } from "clawdbot/plugin-sdk";
-import type { RuntimeEnv } from "clawdbot/plugin-sdk";
 import type { ResolvedLarkAccount } from "./types.js";
 import { resolveLarkAccount } from "./accounts.js";
 import { getLarkClient } from "./client.js";
-import { getLarkRuntime } from "./runtime.js";
 import {
   hasUserAuthorized,
   generateAuthUrl,
@@ -13,10 +12,11 @@ import {
   getValidUserToken,
   type UserToken,
 } from "./oauth.js";
+import { getLarkRuntime } from "./runtime.js";
 
 export type MonitorLarkOpts = {
   accountId?: string;
-  config?: ClawdbotConfig;
+  config?: OpenClawConfig;
   runtime?: RuntimeEnv;
   abortSignal?: AbortSignal;
   webhookPort?: number;
@@ -81,15 +81,15 @@ async function sendAuthLink(params: {
   log: (...args: any[]) => void;
 }) {
   const { account, chatId, senderId, webhookPort, log } = params;
-  
+
   // Build redirect URI
-  const redirectUri = account.config.oauthRedirectUri || 
-    `http://localhost:${webhookPort}/oauth/callback`;
-  
+  const redirectUri =
+    account.config.oauthRedirectUri || `http://localhost:${webhookPort}/oauth/callback`;
+
   // Default scopes for document access
-  const scope = account.config.oauthScope || 
-    "docx:document:readonly wiki:wiki:readonly drive:drive:readonly";
-  
+  const scope =
+    account.config.oauthScope || "docx:document:readonly wiki:wiki:readonly drive:drive:readonly";
+
   // Generate auth URL with state containing senderId for tracking
   const authUrl = generateAuthUrl({
     appId: account.appId,
@@ -97,9 +97,9 @@ async function sendAuthLink(params: {
     state: senderId,
     scope,
   });
-  
+
   log(`[lark:${account.accountId}] Sending auth link to ${senderId}`);
-  
+
   // Send message with authorization link
   const client = getLarkClient(account);
   await client.im.message.create({
@@ -124,7 +124,8 @@ async function sendAuthLink(params: {
             tag: "div",
             text: {
               tag: "lark_md",
-              content: "要使用文档相关功能，需要你先授权机器人访问你的文档。\n\n点击下方按钮完成授权（只需一次）：",
+              content:
+                "要使用文档相关功能，需要你先授权机器人访问你的文档。\n\n点击下方按钮完成授权（只需一次）：",
             },
           },
           {
@@ -151,7 +152,7 @@ async function sendAuthLink(params: {
 async function handleLarkEvent(params: {
   data: any;
   account: ResolvedLarkAccount;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   runtime?: RuntimeEnv;
   webhookPort?: number;
   skipMentionCheck?: boolean; // Skip mention check for pending message reprocessing
@@ -162,7 +163,7 @@ async function handleLarkEvent(params: {
 
   // Get event type from header or schema
   const eventType = data.header?.event_type ?? data.event?.type;
-  
+
   if (eventType !== "im.message.receive_v1") {
     log(`[lark:${account.accountId}] Ignoring event type: ${eventType}`);
     return;
@@ -205,9 +206,7 @@ async function handleLarkEvent(params: {
   }
 
   // Build sender info string for logging and context
-  const senderInfo = senderName 
-    ? `${senderName} (${senderId})`
-    : senderId;
+  const senderInfo = senderName ? `${senderName} (${senderId})` : senderId;
 
   // Get bot's open_id from cache
   const botOpenId = botOpenIdCache.get(account.accountId);
@@ -215,13 +214,13 @@ async function handleLarkEvent(params: {
   // Check if bot was mentioned in the message
   // Only respond if THIS bot is @mentioned, not just any @mention
   const mentions = message.mentions ?? [];
-  const isBotMentioned = botOpenId 
-    ? mentions.some((m: any) => m.id?.open_id === botOpenId)
-    : false; // If we don't have bot info cached, don't respond to avoid responding to other bots' mentions
-  
+  const isBotMentioned = botOpenId ? mentions.some((m: any) => m.id?.open_id === botOpenId) : false; // If we don't have bot info cached, don't respond to avoid responding to other bots' mentions
+
   // Only log mention details if there are mentions
   if (mentions.length > 0) {
-    log(`[lark:${account.accountId}] Mentions: ${mentions.map((m: any) => m.name).join(", ")}, isBotMentioned: ${isBotMentioned}`);
+    log(
+      `[lark:${account.accountId}] Mentions: ${mentions.map((m: any) => m.name).join(", ")}, isBotMentioned: ${isBotMentioned}`,
+    );
   }
 
   // For group chats, only respond when bot is @mentioned (unless skipMentionCheck is true)
@@ -234,7 +233,9 @@ async function handleLarkEvent(params: {
   const sessionKey = `lark:${chatId}`;
 
   // Log inbound message
-  log(`[lark:${account.accountId}] Received message from ${senderInfo} in ${chatType}: ${messageText.slice(0, 50)}...`);
+  log(
+    `[lark:${account.accountId}] Received message from ${senderInfo} in ${chatType}: ${messageText.slice(0, 50)}...`,
+  );
 
   // Record channel activity
   try {
@@ -254,21 +255,21 @@ async function handleLarkEvent(params: {
     accountId: account.accountId,
   });
   const agentId = route.agentId;
-  
+
   // Use a single shared session for all Lark chats (groups and DMs)
   const finalSessionKey = route.mainSessionKey;
 
   // Check if user has authorized (for document access features)
   const userAuthorized = hasUserAuthorized(senderId);
   let userToken: UserToken | null = null;
-  
+
   if (userAuthorized) {
     userToken = await getValidUserToken({ account, openId: senderId });
   }
-  
+
   // Check if message requires document access (simple keyword check)
   const needsDocAccess = /文档|授权|document|doc|wiki|知识库|云文档|飞书文档/i.test(messageText);
-  
+
   // If needs doc access but not authorized, send auth link and store pending message
   if (needsDocAccess && !userToken && account.config.requireUserAuth !== false) {
     log(`[lark:${account.accountId}] User ${senderId} needs authorization for document access`);
@@ -284,8 +285,10 @@ async function handleLarkEvent(params: {
         timestamp: Date.now(),
       };
       storePendingMessage(pendingMsg);
-      log(`[lark:${account.accountId}] Stored pending message for senderId: ${senderId}, messageId: ${messageId}`);
-      
+      log(
+        `[lark:${account.accountId}] Stored pending message for senderId: ${senderId}, messageId: ${messageId}`,
+      );
+
       await sendAuthLink({
         account,
         chatId,
@@ -300,12 +303,12 @@ async function handleLarkEvent(params: {
     }
   }
 
-  // Build the inbound context for clawdbot
+  // Build the inbound context for OpenClaw
   // Include sender info (name and open_id) so the agent knows who sent the message
   const bodyWithSource = isGroup
     ? `[From: ${senderInfo} in lark group: ${chatId}]\n${messageText}`
     : `[From: ${senderInfo}]\n${messageText}`;
-  
+
   const inboundCtx = {
     Body: bodyWithSource,
     RawBody: messageText,
@@ -326,13 +329,15 @@ async function handleLarkEvent(params: {
     OriginatingTo: `lark:${chatId}`,
   };
 
-  // Try to dispatch through clawdbot's reply system
+  // Try to dispatch through OpenClaw reply system
   try {
     const finalizedCtx = getLarkRuntime().channel.reply.finalizeInboundContext(inboundCtx);
-    
+
     // Record session for chat history
     try {
-      const storePath = getLarkRuntime().channel.session.resolveStorePath(config.session?.store, { agentId });
+      const storePath = getLarkRuntime().channel.session.resolveStorePath(config.session?.store, {
+        agentId,
+      });
       await getLarkRuntime().channel.session.recordInboundSession({
         storePath,
         sessionKey: finalizedCtx.SessionKey ?? finalSessionKey,
@@ -352,10 +357,10 @@ async function handleLarkEvent(params: {
     } catch (sessionErr) {
       log(`[lark:${account.accountId}] Failed to record session: ${sessionErr}`);
     }
-    
+
     // Create a simple dispatcher that sends replies back to Lark
     const client = getLarkClient(account);
-    
+
     const sendReply = async (text: string) => {
       await client.im.message.create({
         params: {
@@ -368,7 +373,7 @@ async function handleLarkEvent(params: {
         },
       });
       log(`[lark:${account.accountId}] Sent reply to ${chatId}`);
-      
+
       // Record outbound activity
       getLarkRuntime().channel.activity.record({
         channel: "lark",
@@ -398,7 +403,7 @@ async function handleLarkEvent(params: {
     }
   } catch (err) {
     error(`[lark:${account.accountId}] Failed to dispatch reply: ${err}`);
-    
+
     // Fallback: send simple echo reply
     try {
       const client = getLarkClient(account);
@@ -447,8 +452,12 @@ export async function monitorLarkProvider(opts: MonitorLarkOpts = {}) {
     botOpenIdCache.set(account.accountId, botOpenId);
     log(`[lark:${account.accountId}] Bot open_id from config: ${botOpenId}`);
   } else {
-    log(`[lark:${account.accountId}] Warning: No botOpenId configured. Bot will not respond to @mentions in groups.`);
-    log(`[lark:${account.accountId}] Set channels.lark.botOpenId in config or LARK_BOT_OPEN_ID env var.`);
+    log(
+      `[lark:${account.accountId}] Warning: No botOpenId configured. Bot will not respond to @mentions in groups.`,
+    );
+    log(
+      `[lark:${account.accountId}] Set channels.lark.botOpenId in config or LARK_BOT_OPEN_ID env var.`,
+    );
   }
 
   // Helper to check if URL matches webhook path
@@ -477,7 +486,9 @@ export async function monitorLarkProvider(opts: MonitorLarkOpts = {}) {
       req.on("end", async () => {
         try {
           const data = JSON.parse(body);
-          log(`[lark:${account.accountId}] Received webhook: ${JSON.stringify(data).slice(0, 200)}...`);
+          log(
+            `[lark:${account.accountId}] Received webhook: ${JSON.stringify(data).slice(0, 200)}...`,
+          );
 
           // Handle URL verification challenge from Lark
           if (data.type === "url_verification") {
@@ -524,7 +535,9 @@ export async function monitorLarkProvider(opts: MonitorLarkOpts = {}) {
           }
 
           // Unknown request type
-          log(`[lark:${account.accountId}] Unknown webhook data: ${JSON.stringify(data).slice(0, 100)}`);
+          log(
+            `[lark:${account.accountId}] Unknown webhook data: ${JSON.stringify(data).slice(0, 100)}`,
+          );
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ success: true }));
         } catch (err) {
@@ -544,34 +557,36 @@ export async function monitorLarkProvider(opts: MonitorLarkOpts = {}) {
         const parsedUrl = url.parse(req.url, true);
         const code = parsedUrl.query.code as string;
         const state = parsedUrl.query.state as string;
-        
+
         if (!code) {
           res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
           res.end("<h1>授权失败</h1><p>缺少授权码</p>");
           return;
         }
-        
+
         log(`[lark:${account.accountId}] OAuth callback received, code: ${code.slice(0, 10)}...`);
-        
+
         // Get the redirect_uri that was used for this OAuth flow
-        const redirectUri = account.config.oauthRedirectUri || 
-          `http://localhost:${port}/oauth/callback`;
-        
+        const redirectUri =
+          account.config.oauthRedirectUri || `http://localhost:${port}/oauth/callback`;
+
         // Exchange code for token
         const token = await exchangeCodeForToken({ account, code, redirectUri });
-        
+
         log(`[lark:${account.accountId}] User authorized: ${token.openId}`);
-        
+
         // Check for pending message from this user
         log(`[lark:${account.accountId}] Looking for pending message with key: ${token.openId}`);
-        log(`[lark:${account.accountId}] Current pending messages: ${JSON.stringify([...pendingMessagesCache.keys()])}`);
-        
+        log(
+          `[lark:${account.accountId}] Current pending messages: ${JSON.stringify([...pendingMessagesCache.keys()])}`,
+        );
+
         const pendingMsg = getPendingMessage(token.openId);
-        
+
         if (pendingMsg) {
           log(`[lark:${account.accountId}] Found pending message: ${JSON.stringify(pendingMsg)}`);
           log(`[lark:${account.accountId}] Processing pending message for ${token.openId}`);
-          
+
           // Process the pending message with the new user token
           // Build a fake event data structure to reprocess the message
           const fakeEventData = {
@@ -591,7 +606,7 @@ export async function monitorLarkProvider(opts: MonitorLarkOpts = {}) {
               },
             },
           };
-          
+
           // Process asynchronously so we can respond to the OAuth callback immediately
           handleLarkEvent({
             data: fakeEventData,
@@ -603,7 +618,7 @@ export async function monitorLarkProvider(opts: MonitorLarkOpts = {}) {
           }).catch((err) => {
             error(`[lark:${account.accountId}] Failed to process pending message: ${err}`);
           });
-          
+
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(`
             <html>

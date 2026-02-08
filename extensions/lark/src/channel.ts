@@ -1,8 +1,5 @@
-import {
-  DEFAULT_ACCOUNT_ID,
-  type ChannelPlugin,
-} from "clawdbot/plugin-sdk";
-
+import { DEFAULT_ACCOUNT_ID, type ChannelPlugin } from "openclaw/plugin-sdk";
+import type { ResolvedLarkAccount } from "./types.js";
 import {
   listLarkAccountIds,
   resolveLarkAccount,
@@ -10,10 +7,9 @@ import {
   listEnabledLarkAccounts,
   normalizeAccountId,
 } from "./accounts.js";
-import { sendMessageLark, probeLark } from "./send.js";
 import { monitorLarkProvider } from "./monitor.js";
 import { getLarkRuntime } from "./runtime.js";
-import type { ResolvedLarkAccount } from "./types.js";
+import { sendMessageLark, probeLark } from "./send.js";
 
 // Channel metadata
 const meta = {
@@ -21,7 +17,7 @@ const meta = {
   name: "Lark",
   displayName: "Lark (Feishu)",
   icon: "💬",
-  docsUrl: "https://docs.clawd.bot/channels/lark",
+  docsUrl: "https://docs.openclaw.ai/channels/lark",
 };
 
 // Normalize target ID for messaging
@@ -95,7 +91,8 @@ export const larkPlugin: ChannelPlugin<ResolvedLarkAccount> = {
 
       if (resolvedAccountId === DEFAULT_ACCOUNT_ID) {
         if (updated.channels?.lark) {
-          const { appId, appSecret, encryptKey, verificationToken, ...rest } = updated.channels.lark;
+          const { appId, appSecret, encryptKey, verificationToken, ...rest } =
+            updated.channels.lark;
           updated.channels = {
             ...updated.channels,
             lark: rest,
@@ -145,7 +142,7 @@ export const larkPlugin: ChannelPlugin<ResolvedLarkAccount> = {
         allowFrom: account.config.allowFrom ?? [],
         policyPath: `${basePath}dmPolicy`,
         allowFromPath: basePath,
-        approveHint: `clawdbot config set channels.lark.allowFrom <user_open_id>`,
+        approveHint: `openclaw config set channels.lark.allowFrom <user_open_id>`,
         normalizeEntry: (raw) => raw.replace(/^(lark|feishu):/i, ""),
       };
     },

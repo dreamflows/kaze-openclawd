@@ -3,7 +3,8 @@ import * as path from "node:path";
 import type { ResolvedLarkAccount } from "./types.js";
 
 // Token storage directory
-const TOKEN_STORAGE_DIR = process.env.LARK_TOKEN_DIR || path.join(process.env.HOME || "/tmp", ".clawdbot", "lark-tokens");
+const TOKEN_STORAGE_DIR =
+  process.env.LARK_TOKEN_DIR || path.join(process.env.HOME || "/tmp", ".openclaw", "lark-tokens");
 
 // Ensure token directory exists
 function ensureTokenDir() {
@@ -91,21 +92,21 @@ export function generateAuthUrl(params: {
 }): string {
   const { appId, redirectUri, state, scope } = params;
   const baseUrl = `${API_BASE}/open-apis/authen/v1/authorize`;
-  
+
   const queryParams = new URLSearchParams({
     app_id: appId,
     redirect_uri: redirectUri,
     response_type: "code",
   });
-  
+
   if (state) {
     queryParams.set("state", state);
   }
-  
+
   if (scope) {
     queryParams.set("scope", scope);
   }
-  
+
   return `${baseUrl}?${queryParams.toString()}`;
 }
 
@@ -121,12 +122,12 @@ async function getAppAccessToken(appId: string, appSecret: string): Promise<stri
       app_secret: appSecret,
     }),
   });
-  
+
   const data = await response.json();
   if (data.code !== 0 || !data.app_access_token) {
     throw new Error(`Failed to get app_access_token: ${data.msg} (code: ${data.code})`);
   }
-  
+
   return data.app_access_token;
 }
 
@@ -137,53 +138,53 @@ export async function exchangeCodeForToken(params: {
   redirectUri?: string;
 }): Promise<UserToken> {
   const { account, code, redirectUri } = params;
-  
+
   // Step 1: Get app_access_token
   const appAccessToken = await getAppAccessToken(account.appId, account.appSecret);
   console.log("[lark-oauth] Got app_access_token");
-  
+
   // Step 2: Exchange code for user_access_token using app_access_token
   const tokenResponse = await fetch(`${API_BASE}/open-apis/authen/v1/access_token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${appAccessToken}`,
+      Authorization: `Bearer ${appAccessToken}`,
     },
     body: JSON.stringify({
       grant_type: "authorization_code",
       code,
     }),
   });
-  
+
   const tokenData = await tokenResponse.json();
   console.log("[lark-oauth] Token response:", JSON.stringify(tokenData, null, 2));
-  
+
   if (tokenData.code !== 0 || !tokenData.data) {
     throw new Error(`Failed to exchange code: ${tokenData.msg} (code: ${tokenData.code})`);
   }
-  
+
   const data = tokenData.data;
   const now = Date.now();
-  
+
   // Get user info using the user access token
   const userInfoResponse = await fetch(`${API_BASE}/open-apis/authen/v1/user_info`, {
     method: "GET",
     headers: {
-      "Authorization": `Bearer ${data.access_token}`,
+      Authorization: `Bearer ${data.access_token}`,
     },
   });
-  
+
   const userInfoData = await userInfoResponse.json();
-  
+
   if (userInfoData.code !== 0 || !userInfoData.data) {
     throw new Error(`Failed to get user info: ${userInfoData.msg}`);
   }
-  
+
   const openId = userInfoData.data.open_id;
   if (!openId) {
     throw new Error("No open_id in user info response");
   }
-  
+
   const token: UserToken = {
     openId,
     accessToken: data.access_token!,
@@ -193,7 +194,7 @@ export async function exchangeCodeForToken(params: {
     createdAt: now,
     updatedAt: now,
   };
-  
+
   saveUserToken(token);
   return token;
 }
@@ -204,37 +205,37 @@ export async function refreshUserToken(params: {
   token: UserToken;
 }): Promise<UserToken> {
   const { account, token } = params;
-  
+
   if (isRefreshTokenExpired(token)) {
     deleteUserToken(token.openId);
     throw new Error("Refresh token expired, user needs to re-authorize");
   }
-  
+
   // Get app_access_token first
   const appAccessToken = await getAppAccessToken(account.appId, account.appSecret);
-  
+
   // Use app_access_token to refresh user token
   const response = await fetch(`${API_BASE}/open-apis/authen/v1/refresh_access_token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${appAccessToken}`,
+      Authorization: `Bearer ${appAccessToken}`,
     },
     body: JSON.stringify({
       grant_type: "refresh_token",
       refresh_token: token.refreshToken,
     }),
   });
-  
+
   const responseData = await response.json();
-  
+
   if (responseData.code !== 0 || !responseData.data) {
     throw new Error(`Failed to refresh token: ${responseData.msg} (code: ${responseData.code})`);
   }
-  
+
   const data = responseData.data;
   const now = Date.now();
-  
+
   const newToken: UserToken = {
     ...token,
     accessToken: data.access_token!,
@@ -243,7 +244,7 @@ export async function refreshUserToken(params: {
     refreshExpiresAt: now + (data.refresh_expires_in ?? 30 * 24 * 3600) * 1000,
     updatedAt: now,
   };
-  
+
   saveUserToken(newToken);
   return newToken;
 }
@@ -254,17 +255,17 @@ export async function getValidUserToken(params: {
   openId: string;
 }): Promise<UserToken | null> {
   const { account, openId } = params;
-  
+
   const token = loadUserToken(openId);
   if (!token) {
     return null;
   }
-  
+
   if (isRefreshTokenExpired(token)) {
     deleteUserToken(openId);
     return null;
   }
-  
+
   if (isTokenExpired(token)) {
     try {
       return await refreshUserToken({ account, token });
@@ -274,7 +275,7 @@ export async function getValidUserToken(params: {
       return null;
     }
   }
-  
+
   return token;
 }
 
@@ -295,8 +296,8 @@ export function listAuthorizedUsers(): string[] {
   try {
     const files = fs.readdirSync(TOKEN_STORAGE_DIR);
     return files
-      .filter(f => f.endsWith(".json"))
-      .map(f => {
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => {
         try {
           const data = fs.readFileSync(path.join(TOKEN_STORAGE_DIR, f), "utf-8");
           const token = JSON.parse(data) as UserToken;

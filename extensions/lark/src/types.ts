@@ -1,6 +1,4 @@
-import type { ClawdbotConfig } from "clawdbot/plugin-sdk";
-
-// Lark configuration stored in clawdbot config file
+// Lark configuration stored in OpenClaw config file
 export type LarkChannelConfig = {
   enabled?: boolean;
   appId?: string;
@@ -29,6 +27,7 @@ export type LarkChannelConfig = {
       toolPolicy?: string;
     }
   >;
+  replyToMode?: "off" | "first" | "all";
   // Named accounts for multi-bot setups
   accounts?: Record<string, LarkAccountConfig>;
 };
@@ -117,13 +116,3 @@ export type LarkMessageEvent = {
     };
   };
 };
-
-// Extend ClawdbotConfig to include lark channel
-declare module "clawdbot/plugin-sdk" {
-  interface ClawdbotConfig {
-    channels?: {
-      lark?: LarkChannelConfig;
-      [key: string]: unknown;
-    };
-  }
-}
