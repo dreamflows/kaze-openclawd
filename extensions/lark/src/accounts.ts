@@ -1,15 +1,15 @@
-import type { ClawdbotConfig } from "clawdbot/plugin-sdk";
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import type { LarkChannelConfig, ResolvedLarkAccount, LarkAccountConfig } from "./types.js";
 
 export const DEFAULT_ACCOUNT_ID = "default";
 
-// Get lark channel config from clawdbot config
-function getLarkConfig(cfg: ClawdbotConfig): LarkChannelConfig | undefined {
+// Get lark channel config from OpenClaw config
+function getLarkConfig(cfg: OpenClawConfig): LarkChannelConfig | undefined {
   return cfg.channels?.lark as LarkChannelConfig | undefined;
 }
 
 // List all configured lark account IDs
-export function listLarkAccountIds(cfg: ClawdbotConfig): string[] {
+export function listLarkAccountIds(cfg: OpenClawConfig): string[] {
   const larkConfig = getLarkConfig(cfg);
   if (!larkConfig) return [];
 
@@ -31,7 +31,7 @@ export function listLarkAccountIds(cfg: ClawdbotConfig): string[] {
 }
 
 // Resolve default account ID
-export function resolveDefaultLarkAccountId(cfg: ClawdbotConfig): string {
+export function resolveDefaultLarkAccountId(cfg: OpenClawConfig): string {
   const accountIds = listLarkAccountIds(cfg);
   return accountIds.length > 0 ? accountIds[0] : DEFAULT_ACCOUNT_ID;
 }
@@ -45,7 +45,7 @@ export function normalizeAccountId(accountId?: string): string {
 
 // Resolve a specific lark account
 export function resolveLarkAccount(params: {
-  cfg: ClawdbotConfig;
+  cfg: OpenClawConfig;
   accountId?: string;
 }): ResolvedLarkAccount {
   const { cfg, accountId } = params;
@@ -120,7 +120,9 @@ export function resolveLarkAccount(params: {
 
   return {
     accountId: resolvedAccountId,
-    name: accountConfig?.name || (resolvedAccountId === DEFAULT_ACCOUNT_ID ? undefined : resolvedAccountId),
+    name:
+      accountConfig?.name ||
+      (resolvedAccountId === DEFAULT_ACCOUNT_ID ? undefined : resolvedAccountId),
     enabled,
     appId,
     appSecret,
@@ -133,7 +135,7 @@ export function resolveLarkAccount(params: {
 }
 
 // List all enabled lark accounts
-export function listEnabledLarkAccounts(cfg: ClawdbotConfig): ResolvedLarkAccount[] {
+export function listEnabledLarkAccounts(cfg: OpenClawConfig): ResolvedLarkAccount[] {
   const accountIds = listLarkAccountIds(cfg);
   return accountIds
     .map((accountId) => resolveLarkAccount({ cfg, accountId }))

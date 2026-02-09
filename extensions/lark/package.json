@@ -1,17 +1,36 @@
 {
-  "name": "@clawdbot/lark",
-  "version": "0.0.1",
+  "name": "@openclaw/lark",
+  "version": "0.0.2",
+  "description": "OpenClaw Lark (Feishu) channel plugin",
   "type": "module",
-  "description": "Clawdbot Lark (Feishu) channel plugin",
-  "clawdbot": {
-    "extensions": [
-      "./index.ts"
-    ]
-  },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.37.0"
   },
   "devDependencies": {
+    "openclaw": "workspace:*",
     "typescript": "^5.9.3"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "lark",
+      "label": "Lark",
+      "selectionLabel": "Lark (Feishu)",
+      "docsPath": "/channels/lark",
+      "docsLabel": "lark",
+      "blurb": "Lark/Feishu enterprise messaging.",
+      "aliases": [
+        "feishu"
+      ],
+      "order": 36,
+      "quickstartAllowFrom": true
+    },
+    "install": {
+      "npmSpec": "@openclaw/lark",
+      "localPath": "extensions/lark",
+      "defaultChoice": "npm"
+    }
   }
 }

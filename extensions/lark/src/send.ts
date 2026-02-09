@@ -1,4 +1,4 @@
-import type { ClawdbotConfig } from "clawdbot/plugin-sdk";
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import { resolveLarkAccount } from "./accounts.js";
 import { getLarkClient, sendLarkMessage, uploadLarkImage, sendLarkImage } from "./client.js";
 import { getLarkRuntime } from "./runtime.js";
