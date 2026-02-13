@@ -4,7 +4,7 @@ import * as http from "node:http";
 import * as url from "node:url";
 import type { ResolvedLarkAccount } from "./types.js";
 import { resolveLarkAccount } from "./accounts.js";
-import { getLarkClient } from "./client.js";
+import { getLarkClient, replyLarkMessage } from "./client.js";
 import {
   hasUserAuthorized,
   generateAuthUrl,
@@ -189,6 +189,9 @@ async function handleLarkEvent(params: {
   const senderId = sender.sender_id?.open_id ?? sender.sender_id?.user_id ?? "unknown";
   const senderUnionId = sender.sender_id?.union_id;
   const messageId = message.message_id;
+  const rootId = message.root_id; // Thread root message ID (if message is in a thread/topic)
+  const parentId = message.parent_id; // Parent message ID in thread
+  const isThread = !!rootId; // Whether this message is inside a thread/topic
   const isGroup = chatType !== "p2p";
 
   // Try to get sender's name from Lark API (requires contact:user.base:readonly permission)
@@ -234,7 +237,7 @@ async function handleLarkEvent(params: {
 
   // Log inbound message
   log(
-    `[lark:${account.accountId}] Received message from ${senderInfo} in ${chatType}: ${messageText.slice(0, 50)}...`,
+    `[lark:${account.accountId}] Received message from ${senderInfo} in ${chatType}${isThread ? ` (thread: ${rootId})` : ""}: ${messageText.slice(0, 50)}...`,
   );
 
   // Record channel activity
@@ -362,17 +365,27 @@ async function handleLarkEvent(params: {
     const client = getLarkClient(account);
 
     const sendReply = async (text: string) => {
-      await client.im.message.create({
-        params: {
-          receive_id_type: "chat_id",
-        },
-        data: {
-          receive_id: chatId,
-          msg_type: "text",
-          content: JSON.stringify({ text }),
-        },
-      });
-      log(`[lark:${account.accountId}] Sent reply to ${chatId}`);
+      if (isThread && rootId) {
+        // Reply inside the thread/topic by replying to the root message
+        await replyLarkMessage({
+          client,
+          messageId: rootId,
+          content: text,
+        });
+        log(`[lark:${account.accountId}] Sent thread reply to ${chatId} (thread root: ${rootId})`);
+      } else {
+        await client.im.message.create({
+          params: {
+            receive_id_type: "chat_id",
+          },
+          data: {
+            receive_id: chatId,
+            msg_type: "text",
+            content: JSON.stringify({ text }),
+          },
+        });
+        log(`[lark:${account.accountId}] Sent reply to ${chatId}`);
+      }
 
       // Record outbound activity
       getLarkRuntime().channel.activity.record({
