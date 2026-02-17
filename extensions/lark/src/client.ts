@@ -31,7 +31,7 @@ export async function sendLarkMessage(params: {
   client: lark.Client;
   chatId: string;
   content: string;
-  msgType?: "text" | "post" | "interactive";
+  msgType?: "text" | "post" | "interactive" | "image";
 }): Promise<{ messageId: string; chatId: string }> {
   const { client, chatId, content, msgType = "text" } = params;
 
@@ -69,7 +69,7 @@ export async function replyLarkMessage(params: {
   client: lark.Client;
   messageId: string;
   content: string;
-  msgType?: "text" | "post" | "interactive";
+  msgType?: "text" | "post" | "interactive" | "image";
 }): Promise<{ messageId: string }> {
   const { client, messageId, content, msgType = "text" } = params;
 

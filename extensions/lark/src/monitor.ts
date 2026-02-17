@@ -189,6 +189,7 @@ async function handleLarkEvent(params: {
   const senderId = sender.sender_id?.open_id ?? sender.sender_id?.user_id ?? "unknown";
   const senderUnionId = sender.sender_id?.union_id;
   const messageId = message.message_id;
+  const threadRootId = message.root_id?.trim() || undefined;
   const isGroup = chatType !== "p2p";
 
   // Try to get sender's name from Lark API (requires contact:user.base:readonly permission)
@@ -322,6 +323,12 @@ async function handleLarkEvent(params: {
     Surface: "lark",
     Provider: "lark",
     MessageSid: messageId,
+    ...(threadRootId
+      ? {
+          ReplyToId: threadRootId,
+          MessageThreadId: threadRootId,
+        }
+      : {}),
     IsMentioned: isBotMentioned,
     UserAuthorized: userAuthorized,
     UserAccessToken: userToken?.accessToken,
