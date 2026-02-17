@@ -32,8 +32,9 @@ export async function sendLarkMessage(params: {
   chatId: string;
   content: string;
   msgType?: "text" | "post" | "interactive" | "image";
+  rootId?: string;
 }): Promise<{ messageId: string; chatId: string }> {
-  const { client, chatId, content, msgType = "text" } = params;
+  const { client, chatId, content, msgType = "text", rootId } = params;
 
   // Prepare content based on message type
   let formattedContent: string;
@@ -51,6 +52,7 @@ export async function sendLarkMessage(params: {
       receive_id: chatId,
       msg_type: msgType,
       content: formattedContent,
+      ...(rootId ? { root_id: rootId } : {}),
     },
   });
 
@@ -104,8 +106,9 @@ export async function sendLarkImage(params: {
   client: lark.Client;
   chatId: string;
   imageKey: string;
+  rootId?: string;
 }): Promise<{ messageId: string; chatId: string }> {
-  const { client, chatId, imageKey } = params;
+  const { client, chatId, imageKey, rootId } = params;
 
   const content = JSON.stringify({ image_key: imageKey });
 
@@ -117,6 +120,7 @@ export async function sendLarkImage(params: {
       receive_id: chatId,
       msg_type: "image",
       content,
+      ...(rootId ? { root_id: rootId } : {}),
     },
   });
 

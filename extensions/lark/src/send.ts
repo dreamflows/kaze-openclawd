@@ -1,12 +1,6 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import { resolveLarkAccount } from "./accounts.js";
-import {
-  getLarkClient,
-  replyLarkMessage,
-  sendLarkMessage,
-  uploadLarkImage,
-  sendLarkImage,
-} from "./client.js";
+import { getLarkClient, sendLarkMessage, uploadLarkImage, sendLarkImage } from "./client.js";
 import { getLarkRuntime } from "./runtime.js";
 
 export type LarkSendOpts = {
@@ -58,24 +52,12 @@ export async function sendMessageLark(
   const replyToId = opts.replyToId?.trim() || undefined;
 
   const sendTextContent = async (content: string) => {
-    if (!replyToId) {
-      return await sendLarkMessage({
-        client,
-        chatId,
-        content,
-      });
-    }
-
-    const result = await replyLarkMessage({
+    return await sendLarkMessage({
       client,
-      messageId: replyToId,
-      content,
-    });
-
-    return {
-      messageId: result.messageId,
       chatId,
-    } satisfies LarkSendResult;
+      content,
+      ...(replyToId ? { rootId: replyToId } : {}),
+    });
   };
 
   // Handle media if provided
@@ -91,23 +73,12 @@ export async function sendMessageLark(
           image: media.buffer,
         });
 
-        const imageResult = replyToId
-          ? {
-              messageId: (
-                await replyLarkMessage({
-                  client,
-                  messageId: replyToId,
-                  content: JSON.stringify({ image_key: imageKey }),
-                  msgType: "image",
-                })
-              ).messageId,
-              chatId,
-            }
-          : await sendLarkImage({
-              client,
-              chatId,
-              imageKey,
-            });
+        const imageResult = await sendLarkImage({
+          client,
+          chatId,
+          imageKey,
+          ...(replyToId ? { rootId: replyToId } : {}),
+        });
 
         if (text?.trim()) {
           const textResult = await sendTextContent(text);
