@@ -79,8 +79,9 @@ async function sendAuthLink(params: {
   senderId: string;
   webhookPort: number;
   log: (...args: any[]) => void;
+  rootId?: string;
 }) {
-  const { account, chatId, senderId, webhookPort, log } = params;
+  const { account, chatId, senderId, webhookPort, log, rootId } = params;
 
   // Build redirect URI
   const redirectUri =
@@ -144,6 +145,7 @@ async function sendAuthLink(params: {
           },
         ],
       }),
+      ...(rootId ? { root_id: rootId } : {}),
     },
   });
 }
@@ -296,6 +298,7 @@ async function handleLarkEvent(params: {
         senderId,
         webhookPort,
         log,
+        rootId: threadRootId,
       });
       return; // Don't process the message further until user authorizes
     } catch (authErr) {
@@ -377,9 +380,12 @@ async function handleLarkEvent(params: {
           receive_id: chatId,
           msg_type: "text",
           content: JSON.stringify({ text }),
+          ...(threadRootId ? { root_id: threadRootId } : {}),
         },
       });
-      log(`[lark:${account.accountId}] Sent reply to ${chatId}`);
+      log(
+        `[lark:${account.accountId}] Sent reply to ${chatId}${threadRootId ? ` (root_id=${threadRootId})` : ""}`,
+      );
 
       // Record outbound activity
       getLarkRuntime().channel.activity.record({
@@ -422,6 +428,7 @@ async function handleLarkEvent(params: {
           receive_id: chatId,
           msg_type: "text",
           content: JSON.stringify({ text: `收到: ${messageText.slice(0, 100)}` }),
+          ...(threadRootId ? { root_id: threadRootId } : {}),
         },
       });
     } catch (fallbackErr) {
